@@ -1,0 +1,20 @@
+[
+  {
+    "id": "escaner",
+    "name": "Escáner IA de Productos",
+    "icon": "📷",
+    "script": "escaner.js"
+  },
+  {
+    "id": "calculadora",
+    "name": "Calculadora de Márgenes",
+    "icon": "🧮",
+    "script": "calculadora.js"
+  },
+  {
+    "id": "mi_herramienta_1",
+    "name": "Mi Nueva Herramienta",
+    "icon": "🚀",
+    "script": "mi_herramienta_1.js"
+  }
+]
