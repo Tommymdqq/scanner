@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Escáner de Fundas y Productos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: manipulation;
+    }
+    .scanner-mask {
+      box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.75);
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-950 text-slate-100 flex flex-col justify-between overflow-hidden">
+
+  <!-- Header -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex justify-between items-center z-10 shrink-0">
+    <div class="flex items-center gap-2">
+      <span class="text-xl">📱</span>
+      <h1 class="font-bold text-slate-100 text-base">Escáner de Fundas</h1>
+    </div>
+    <span id="item-count-badge" class="bg-sky-950 text-sky-400 border border-sky-800 text-xs px-2.5 py-1 rounded-full font-medium">
+      0 Registrados
+    </span>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="relative flex-1 overflow-hidden flex flex-col">
+    
+    <!-- Camera View -->
+    <section id="view-camera" class="relative flex-1 flex flex-col bg-black overflow-hidden">
+      
+      <!-- Video Element -->
+      <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover"></video>
+      
+      <!-- Canvas Overlay -->
+      <canvas id="overlay-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+
+      <!-- Live Detected Color Pill -->
+      <div class="absolute top-4 left-4 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-3.5 py-1.5 rounded-full flex items-center gap-2.5 shadow-lg">
+        <span id="live-swatch" class="w-4 h-4 rounded-full border border-white/40 shadow-inner bg-slate-500"></span>
+        <span id="live-color-name" class="text-xs font-semibold text-slate-200">Buscando objeto...</span>
+      </div>
+
+      <!-- Toast Alert -->
+      <div id="scan-toast" class="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-emerald-500 text-white font-semibold text-xs px-4 py-2 rounded-full shadow-lg transition-all opacity-0 pointer-events-none">
+        ✓ ¡Objeto Capturado!
+      </div>
+
+      <!-- Permission / Error Overlay -->
+      <div id="camera-error-overlay" class="hidden absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-30">
+        <span class="text-4xl mb-3">📷</span>
+        <h2 class="text-lg font-bold text-slate-100 mb-2">Acceso a Cámara Requerido</h2>
+        <p class="text-xs text-slate-400 max-w-xs mb-4">
+          Permite el acceso a la cámara trasera en tu navegador para comenzar el escaneo de fundas.
+        </p>
+        <button id="retry-camera-btn" class="bg-sky-600 active:bg-sky-700 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-md">
+          Reintentar Cámara
+        </button>
+      </div>
+
+      <!-- Camera Floating Controls -->
+      <div class="absolute bottom-6 inset-x-0 flex items-center justify-around px-8 z-10">
+        <button id="toggle-auto-btn" class="bg-slate-900/80 active:bg-slate-800 text-slate-300 border border-slate-700/80 text-xs px-3.5 py-2 rounded-full backdrop-blur-md font-medium transition-colors">
+          Auto: OFF
+        </button>
+
+        <button id="capture-btn" class="w-16 h-16 rounded-full bg-white/20 border-4 border-white active:scale-95 transition-transform flex items-center justify-center shadow-2xl backdrop-blur-sm">
+          <span class="w-12 h-12 rounded-full bg-white flex items-center justify-center text-slate-900 text-lg">📸</span>
+        </button>
+
+        <div class="w-16"></div>
+      </div>
+    </section>
+
+    <!-- Library View -->
+    <section id="view-library" class="hidden flex-1 flex-col bg-slate-950 overflow-hidden">
+      <!-- Search & Actions Bar -->
+      <div class="p-3 bg-slate-900 border-b border-slate-800 flex gap-2 shrink-0">
+        <input type="text" id="search-bar" placeholder="Buscar por nombre, color o categoría..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-sky-500 placeholder-slate-500">
+        <button id="export-btn" class="bg-slate-800 active:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg font-medium">
+          Exportar JSON
+        </button>
+      </div>
+
+      <!-- Cards Grid -->
+      <div id="library-grid" class="flex-1 overflow-y-auto p-3 grid grid-cols-2 gap-3 align-content-start">
+        <!-- Rendered items go here -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="bg-slate-900 border-t border-slate-800 flex shrink-0">
+    <button class="nav-btn flex-1 py-3 flex flex-col items-center gap-1 text-sky-400 font-semibold text-xs" data-view="view-camera">
+      <span class="text-base">📸</span>
+      <span>Escáner</span>
+    </button>
+    <button class="nav-btn flex-1 py-3 flex flex-col items-center gap-1 text-slate-500 font-medium text-xs" data-view="view-library">
+      <span class="text-base">📦</span>
+      <span>Biblioteca</span>
+    </button>
+  </nav>
+
+  <!-- Save Object Modal -->
+  <div id="save-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-xl p-4 shadow-2xl flex flex-col gap-4">
+      
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <h3 class="font-bold text-sm text-slate-100">Registrar Producto</h3>
+        <span class="text-xs text-slate-500" id="modal-date-tag">--</span>
+      </div>
+
+      <!-- Preview Image Thumbnail -->
+      <div class="flex gap-3 items-center">
+        <img id="modal-preview-img" src="" class="w-20 h-28 object-cover rounded-lg border border-slate-700 bg-black">
+        <div class="flex-1 flex flex-col gap-2">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Categoría</label>
+            <select id="modal-category" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+              <option value="Funda Silicona">Funda Silicona</option>
+              <option value="Funda MagSafe">Funda MagSafe</option>
+              <option value="Funda Rígida">Funda Rígida</option>
+              <option value="Accesorio">Accesorio</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Color Detectado</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="modal-color-picker" class="w-8 h-8 rounded border-0 bg-transparent cursor-pointer">
+              <span id="modal-color-name" class="text-xs font-medium text-sky-400">Color</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Title Input -->
+      <div>
+        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Nombre / Identificador</label>
+        <input type="text" id="modal-title-input" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500" placeholder="Ej: Funda iPhone 13 Azul">
+      </div>
+
+      <!-- Color Presets -->
+      <div>
+        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1.5">Ajuste Rápido de Color</label>
+        <div class="flex flex-wrap gap-1.5" id="color-quick-presets">
+          <button type="button" data-color="#0f172a" data-name="Negro Matte" class="w-6 h-6 rounded-full bg-slate-900 border border-slate-600"></button>
+          <button type="button" data-color="#f8fafc" data-name="Blanco Matte" class="w-6 h-6 rounded-full bg-slate-100 border border-slate-400"></button>
+          <button type="button" data-color="#ef4444" data-name="Rojo Silicona" class="w-6 h-6 rounded-full bg-red-500 border border-red-400"></button>
+          <button type="button" data-color="#3b82f6" data-name="Azul Cobalto" class="w-6 h-6 rounded-full bg-blue-500 border border-blue-400"></button>
+          <button type="button" data-color="#10b981" data-name="Verde Menta" class="w-6 h-6 rounded-full bg-emerald-500 border border-emerald-400"></button>
+          <button type="button" data-color="#f472b6" data-name="Rosa Pastel" class="w-6 h-6 rounded-full bg-pink-400 border border-pink-300"></button>
+          <button type="button" data-color="#a855f7" data-name="Púrpura" class="w-6 h-6 rounded-full bg-purple-500 border border-purple-400"></button>
+          <button type="button" data-color="#eab308" data-name="Amarillo" class="w-6 h-6 rounded-full bg-yellow-500 border border-yellow-400"></button>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button id="btn-cancel-modal" class="px-3.5 py-2 rounded-lg bg-slate-800 active:bg-slate-700 text-xs font-semibold text-slate-300">
+          Cancelar
+        </button>
+        <button id="btn-save-modal" class="px-3.5 py-2 rounded-lg bg-sky-600 active:bg-sky-700 text-xs font-semibold text-white shadow-md">
+          Guardar Objeto
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // State Variables
+    let videoStream = null;
+    let autoScanEnabled = false;
+    let lastScanTimestamp = 0;
+    let libraryItems = JSON.parse(localStorage.getItem('scanned_items') || '[]');
+    let currentTempCapture = null;
+    let currentDetectedColor = { hex: '#3b82f6', name: 'Analizando...' };
+
+    // DOM Elements
+    const video = document.getElementById('webcam');
+    const overlayCanvas = document.getElementById('overlay-canvas');
+    const ctx = overlayCanvas.getContext('2d');
+    const itemCountBadge = document.getElementById('item-count-badge');
+    const scanToast = document.getElementById('scan-toast');
+    const toggleAutoBtn = document.getElementById('toggle-auto-btn');
+    const captureBtn = document.getElementById('capture-btn');
+    const libraryGrid = document.getElementById('library-grid');
+    const searchInput = document.getElementById('search-bar');
+    const saveModal = document.getElementById('save-modal');
+    const liveSwatch = document.getElementById('live-swatch');
+    const liveColorName = document.getElementById('live-color-name');
+    const cameraErrorOverlay = document.getElementById('camera-error-overlay');
+    const modalColorPicker = document.getElementById('modal-color-picker');
+    const modalColorName = document.getElementById('modal-color-name');
+
+    // Color conversion utilities
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return [h * 360, s * 100, l * 100];
+    }
+
+    function rgbToHex(r, g, b) {
+      return "#" + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+    }
+
+    function getSiliconeColorName(r, g, b) {
+      const [h, s, l] = rgbToHsl(r, g, b);
+
+      if (l < 16) return "Negro Matte";
+      if (l > 86 && s < 15) return "Blanco / Transparente";
+      if (s < 14) {
+        if (l > 58) return "Gris Claro";
+        return "Gris Oscuro / Grafito";
+      }
+
+      if (h >= 345 || h < 12) {
+        if (l < 35) return "Rojo Vino / Bordó";
+        if (s < 45) return "Rosa Palo / Pastel";
+        return "Rojo Silicona";
+      }
+      if (h >= 12 && h < 45) {
+        if (l > 70) return "Beige / Crema";
+        if (l < 40) return "Marrón / Terracota";
+        return "Naranja";
+      }
+      if (h >= 45 && h < 68) return "Amarillo";
+      if (h >= 68 && h < 165) {
+        if (l < 30) return "Verde Oliva / Militar";
+        if (s < 38) return "Verde Menta Pastel";
+        return "Verde";
+      }
+      if (h >= 165 && h < 260) {
+        if (l < 26) return "Azul Marino / Dark Navy";
+        if (l > 68 || s < 40) return "Azul Celeste / Pastel";
+        return "Azul Cobalto";
+      }
+      if (h >= 260 && h < 315) {
+        if (l < 30) return "Púrpura Oscuro";
+        return "Púrpura / Violeta";
+      }
+      if (h >= 315 && h < 345) return "Rosa Fucsia";
+
+      return "Color Neutro";
+    }
+
+    // Camera Init & Handling
+    async function startCamera() {
+      cameraErrorOverlay.classList.add('hidden');
+      try {
+        if (videoStream) {
+          videoStream.getTracks().forEach(track => track.stop());
+        }
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = videoStream;
+        video.onloadedmetadata = () => {
+          resizeOverlayCanvas();
+          requestAnimationFrame(processCameraFrame);
+        };
+      } catch (err) {
+        console.error("Camera access failed:", err);
+        cameraErrorOverlay.classList.remove('hidden');
+      }
+    }
+
+    function resizeOverlayCanvas() {
+      overlayCanvas.width = video.videoWidth || overlayCanvas.clientWidth;
+      overlayCanvas.height = video.videoHeight || overlayCanvas.clientHeight;
+    }
+
+    window.addEventListener('resize', resizeOverlayCanvas);
+
+    // Silicone Case Frame Analysis
+    function processCameraFrame() {
+      if (video.readyState === video.HAVE_ENOUGH_DATA && overlayCanvas.width > 0) {
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+        // Define smartphone case box guide (3:5 ratio)
+        const boxWidth = Math.min(overlayCanvas.width * 0.55, 260);
+        const boxHeight = boxWidth * 1.6;
+        const x = (overlayCanvas.width - boxWidth) / 2;
+        const y = (overlayCanvas.height - boxHeight) / 2;
+
+        // Draw overlay frame
+        ctx.strokeStyle = autoScanEnabled ? '#10b981' : '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 6]);
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
+        ctx.setLineDash([]);
+
+        // Sample center region
+        const sampleCanvas = document.createElement('canvas');
+        sampleCanvas.width = 80;
+        sampleCanvas.height = 80;
+        const sampleCtx = sampleCanvas.getContext('2d');
+
+        const innerX = x + boxWidth * 0.2;
+        const innerY = y + boxHeight * 0.2;
+        const innerW = boxWidth * 0.6;
+        const innerH = boxHeight * 0.6;
+
+        sampleCtx.drawImage(video, innerX, innerY, innerW, innerH, 0, 0, 80, 80);
+        const frameData = sampleCtx.getImageData(0, 0, 80, 80);
+
+        const { hex, name, variance } = analyzeSiliconeSurface(frameData);
+
+        currentDetectedColor = { hex, name };
+        liveSwatch.style.backgroundColor = hex;
+        liveColorName.innerText = name;
+
+        const now = Date.now();
+        if (autoScanEnabled && variance > 12 && (now - lastScanTimestamp > 3000)) {
+          lastScanTimestamp = now;
+          captureProduct(currentDetectedColor);
+        }
+      }
+      requestAnimationFrame(processCameraFrame);
+    }
+
+    // Filter out lighting glares & harsh border shadows
+    function analyzeSiliconeSurface(imageData) {
+      const data = imageData.data;
+      const validPixels = [];
+      let totalVariance = 0;
+      let prevIntensity = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const [h, s, l] = rgbToHsl(r, g, b);
+
+        // Exclude glares (>88% brightness) and deep shadows (<10% brightness)
+        if (l > 10 && l < 88) {
+          validPixels.push({ r, g, b });
+        }
+
+        const intensity = (r + g + b) / 3;
+        totalVariance += Math.abs(intensity - prevIntensity);
+        prevIntensity = intensity;
+      }
+
+      if (validPixels.length === 0) {
+        validPixels.push({ r: 120, g: 120, b: 120 });
+      }
+
+      let sumR = 0, sumG = 0, sumB = 0;
+      validPixels.forEach(p => {
+        sumR += p.r;
+        sumG += p.g;
+        sumB += p.b;
+      });
+
+      const avgR = sumR / validPixels.length;
+      const avgG = sumG / validPixels.length;
+      const avgB = sumB / validPixels.length;
+
+      const hex = rgbToHex(avgR, avgG, avgB);
+      const name = getSiliconeColorName(avgR, avgG, avgB);
+      const variance = totalVariance / (data.length / 4);
+
+      return { hex, name, variance };
+    }
+
+    // Trigger Object Capture
+    function captureProduct(overrideColor = null) {
+      playAudioBeep();
+      if (navigator.vibrate) navigator.vibrate(80);
+
+      // Flash Toast Notification
+      scanToast.classList.remove('opacity-0');
+      setTimeout(() => scanToast.classList.add('opacity-0'), 1500);
+
+      const capCanvas = document.createElement('canvas');
+      capCanvas.width = 320;
+      capCanvas.height = 480;
+      const capCtx = capCanvas.getContext('2d');
+
+      const boxWidth = Math.min(video.videoWidth * 0.55, 260);
+      const boxHeight = boxWidth * 1.6;
+      const x = (video.videoWidth - boxWidth) / 2;
+      const y = (video.videoHeight - boxHeight) / 2;
+
+      capCtx.drawImage(video, x, y, boxWidth, boxHeight, 0, 0, 320, 480);
+      const dataUrl = capCanvas.toDataURL('image/jpeg', 0.85);
+
+      const colorData = overrideColor || currentDetectedColor;
+
+      currentTempCapture = {
+        img: dataUrl,
+        colorHex: colorData.hex,
+        colorName: colorData.name,
+        date: new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+      };
+
+      // Populate Modal Fields
+      document.getElementById('modal-preview-img').src = dataUrl;
+      document.getElementById('modal-title-input').value = `Funda ${colorData.name}`;
+      document.getElementById('modal-category').value = 'Funda Silicona';
+      document.getElementById('modal-date-tag').innerText = currentTempCapture.date;
+      modalColorPicker.value = colorData.hex;
+      modalColorName.innerText = colorData.name;
+
+      saveModal.classList.remove('hidden');
+      saveModal.classList.add('flex');
+    }
+
+    // Synth Audio Feedback
+    function playAudioBeep() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+      } catch (e) {}
+    }
+
+    // Modal Interaction Logic
+    modalColorPicker.addEventListener('input', (e) => {
+      const hex = e.target.value;
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const name = getSiliconeColorName(r, g, b);
+      modalColorName.innerText = name;
+      if (currentTempCapture) {
+        currentTempCapture.colorHex = hex;
+        currentTempCapture.colorName = name;
+      }
+    });
+
+    document.querySelectorAll('#color-quick-presets button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hex = btn.dataset.color;
+        const name = btn.dataset.name;
+        modalColorPicker.value = hex;
+        modalColorName.innerText = name;
+        if (currentTempCapture) {
+          currentTempCapture.colorHex = hex;
+          currentTempCapture.colorName = name;
+        }
+      });
+    });
+
+    document.getElementById('btn-save-modal').addEventListener('click', () => {
+      const title = document.getElementById('modal-title-input').value || 'Objeto sin nombre';
+      const category = document.getElementById('modal-category').value;
+
+      const newItem = {
+        id: Date.now(),
+        title,
+        category,
+        image: currentTempCapture.img,
+        colorHex: currentTempCapture.colorHex,
+        colorName: currentTempCapture.colorName,
+        date: currentTempCapture.date
+      };
+
+      libraryItems.unshift(newItem);
+      localStorage.setItem('scanned_items', JSON.stringify(libraryItems));
+      renderLibraryUI();
+      closeModal();
+    });
+
+    document.getElementById('btn-cancel-modal').addEventListener('click', closeModal);
+
+    function closeModal() {
+      saveModal.classList.add('hidden');
+      saveModal.classList.remove('flex');
+    }
+
+    // Library Rendering
+    function renderLibraryUI() {
+      itemCountBadge.textContent = `${libraryItems.length} Registrados`;
+      const filter = searchInput.value.toLowerCase().trim();
+
+      const filtered = libraryItems.filter(item =>
+        item.title.toLowerCase().includes(filter) ||
+        item.category.toLowerCase().includes(filter) ||
+        (item.colorName && item.colorName.toLowerCase().includes(filter))
+      );
+
+      if (filtered.length === 0) {
+        libraryGrid.innerHTML = `
+          <div class="col-span-2 py-12 text-center text-slate-500 text-xs">
+            No se encontraron objetos registrados.
+          </div>
+        `;
+        return;
+      }
+
+      libraryGrid.innerHTML = filtered.map(item => `
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-md">
+          <img src="${item.image}" alt="${item.title}" class="w-full h-36 object-cover bg-black">
+          <div class="p-2.5 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="font-bold text-xs text-slate-100 truncate mb-1">${item.title}</div>
+              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span class="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0" style="background-color: ${item.colorHex || '#3b82f6'}"></span>
+                <span class="truncate">${item.colorName || 'Silicona'} • ${item.category}</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-800/80">
+              <span class="text-[9px] text-slate-500">${item.date}</span>
+              <button onclick="deleteLibraryItem(${item.id})" class="text-[10px] font-semibold text-rose-400 active:text-rose-300">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    window.deleteLibraryItem = function(id) {
+      libraryItems = libraryItems.filter(item => item.id !== id);
+      localStorage.setItem('scanned_items', JSON.stringify(libraryItems));
+      renderLibraryUI();
+    };
+
+    // Navigation & Tab Switcher
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => {
+          b.classList.remove('text-sky-400', 'font-semibold');
+          b.classList.add('text-slate-500', 'font-medium');
+        });
+        document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+
+        btn.classList.remove('text-slate-500', 'font-medium');
+        btn.classList.add('text-sky-400', 'font-semibold');
+
+        const targetView = document.getElementById(btn.dataset.view);
+        targetView.classList.remove('hidden');
+        if (btn.dataset.view === 'view-camera') {
+          targetView.classList.add('flex');
+        } else {
+          targetView.classList.add('flex');
+          renderLibraryUI();
+        }
+      });
+    });
+
+    // Control Handlers
+    toggleAutoBtn.addEventListener('click', () => {
+      autoScanEnabled = !autoScanEnabled;
+      toggleAutoBtn.innerText = `Auto: ${autoScanEnabled ? 'ON' : 'OFF'}`;
+      toggleAutoBtn.classList.toggle('bg-emerald-950/80', autoScanEnabled);
+      toggleAutoBtn.classList.toggle('border-emerald-700', autoScanEnabled);
+      toggleAutoBtn.classList.toggle('text-emerald-400', autoScanEnabled);
+    });
+
+    captureBtn.addEventListener('click', () => captureProduct());
+    searchInput.addEventListener('input', renderLibraryUI);
+    document.getElementById('retry-camera-btn').addEventListener('click', startCamera);
+
+    document.getElementById('export-btn').addEventListener('click', () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(libraryItems, null, 2));
+      const dlAnchor = document.createElement('a');
+      dlAnchor.setAttribute("href", dataStr);
+      dlAnchor.setAttribute("download", `inventario_fundas_${Date.now()}.json`);
+      document.body.appendChild(dlAnchor);
+      dlAnchor.click();
+      dlAnchor.remove();
+    });
+
+    // Startup Initialization
+    startCamera();
+    renderLibraryUI();
+  </script>
+</body>
+</html>
