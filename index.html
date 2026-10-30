@@ -1,206 +1,682 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Escáner de Fundas y Productos</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Escáner de Fundas & Productos</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      touch-action: manipulation;
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: rgba(23, 32, 51, 0.7);
+      --bg-glass: rgba(15, 23, 42, 0.75);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
     }
-    .scanner-mask {
-      box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.75);
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* Modos de Vista */
+    main {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .view-container {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+    }
+
+    .view-container.active {
+      display: flex;
+    }
+
+    /* Escáner / Cámara */
+    .camera-wrapper {
+      position: relative;
+      flex: 1;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    canvas.overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    /* Indicator de color activo */
+    .live-color-badge {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-glass);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      padding: 6px 14px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      z-index: 5;
+    }
+
+    .color-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+
+    /* Toast */
+    .scan-toast {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #10b981;
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: none;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Botones de Cámara */
+    .scanner-controls {
+      position: absolute;
+      bottom: 24px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 5;
+    }
+
+    .btn-circle {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      background: rgba(255, 255, 255, 0.25);
+      color: #fff;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      transition: transform 0.1s;
+    }
+
+    .btn-circle:active {
+      transform: scale(0.92);
+    }
+
+    .toggle-auto {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 10px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+    }
+
+    .toggle-auto.active {
+      background: var(--accent-hover);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Biblioteca */
+    .library-header {
+      padding: 14px 16px;
+      background: var(--bg-glass);
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: rgba(15, 23, 42, 0.6);
+      color: #fff;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .btn-export {
+      padding: 10px 14px;
+      background: var(--accent-hover);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .grid-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .card:active {
+      transform: scale(0.97);
+    }
+
+    .card img {
+      width: 100%;
+      height: 130px;
+      object-fit: cover;
+      background: #000;
+    }
+
+    .card-content {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Navegación Flotante */
+    nav {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 30px;
+      display: flex;
+      padding: 4px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+
+    .nav-btn {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-btn.active {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* Modales */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 30;
+    }
+
+    .modal-content {
+      background: #1e293b;
+      width: 100%;
+      max-width: 380px;
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h3 {
+      font-size: 1.1rem;
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px;
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    /* Detalle de Producto */
+    .detail-img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      background: #000;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem;
+    }
+
+    .detail-label {
+      color: var(--text-muted);
     }
   </style>
 </head>
-<body class="h-full bg-slate-950 text-slate-100 flex flex-col justify-between overflow-hidden">
+<body>
 
-  <!-- Header -->
-  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex justify-between items-center z-10 shrink-0">
-    <div class="flex items-center gap-2">
-      <span class="text-xl">📱</span>
-      <h1 class="font-bold text-slate-100 text-base">Escáner de Fundas</h1>
-    </div>
-    <span id="item-count-badge" class="bg-sky-950 text-sky-400 border border-sky-800 text-xs px-2.5 py-1 rounded-full font-medium">
-      0 Registrados
-    </span>
+  <header>
+    <h1>Scanner Pro</h1>
+    <span class="badge" id="item-count">0 Registrados</span>
   </header>
 
-  <!-- Main View Container -->
-  <main class="relative flex-1 overflow-hidden flex flex-col">
-    
-    <!-- Camera View -->
-    <section id="view-camera" class="relative flex-1 flex flex-col bg-black overflow-hidden">
-      
-      <!-- Video Element -->
-      <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover"></video>
-      
-      <!-- Canvas Overlay -->
-      <canvas id="overlay-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+  <main>
+    <!-- Vista Cámara -->
+    <section id="view-camera" class="view-container active">
+      <div class="camera-wrapper">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="overlay-canvas" class="overlay"></canvas>
+        
+        <div class="live-color-badge">
+          <div id="live-swatch" class="color-swatch"></div>
+          <span id="live-color-name">Detectando...</span>
+        </div>
 
-      <!-- Live Detected Color Pill -->
-      <div class="absolute top-4 left-4 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-3.5 py-1.5 rounded-full flex items-center gap-2.5 shadow-lg">
-        <span id="live-swatch" class="w-4 h-4 rounded-full border border-white/40 shadow-inner bg-slate-500"></span>
-        <span id="live-color-name" class="text-xs font-semibold text-slate-200">Buscando objeto...</span>
+        <div id="scan-toast" class="scan-toast">¡Objeto Guardado!</div>
       </div>
-
-      <!-- Toast Alert -->
-      <div id="scan-toast" class="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-emerald-500 text-white font-semibold text-xs px-4 py-2 rounded-full shadow-lg transition-all opacity-0 pointer-events-none">
-        ✓ ¡Objeto Capturado!
-      </div>
-
-      <!-- Permission / Error Overlay -->
-      <div id="camera-error-overlay" class="hidden absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-30">
-        <span class="text-4xl mb-3">📷</span>
-        <h2 class="text-lg font-bold text-slate-100 mb-2">Acceso a Cámara Requerido</h2>
-        <p class="text-xs text-slate-400 max-w-xs mb-4">
-          Permite el acceso a la cámara trasera en tu navegador para comenzar el escaneo de fundas.
-        </p>
-        <button id="retry-camera-btn" class="bg-sky-600 active:bg-sky-700 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-md">
-          Reintentar Cámara
-        </button>
-      </div>
-
-      <!-- Camera Floating Controls -->
-      <div class="absolute bottom-6 inset-x-0 flex items-center justify-around px-8 z-10">
-        <button id="toggle-auto-btn" class="bg-slate-900/80 active:bg-slate-800 text-slate-300 border border-slate-700/80 text-xs px-3.5 py-2 rounded-full backdrop-blur-md font-medium transition-colors">
-          Auto: OFF
-        </button>
-
-        <button id="capture-btn" class="w-16 h-16 rounded-full bg-white/20 border-4 border-white active:scale-95 transition-transform flex items-center justify-center shadow-2xl backdrop-blur-sm">
-          <span class="w-12 h-12 rounded-full bg-white flex items-center justify-center text-slate-900 text-lg">📸</span>
-        </button>
-
-        <div class="w-16"></div>
+      <div class="scanner-controls">
+        <button id="toggle-auto-btn" class="toggle-auto">Auto-Escaneo: OFF</button>
+        <button id="capture-btn" class="btn-circle">📷</button>
+        <div style="width: 90px;"></div>
       </div>
     </section>
 
-    <!-- Library View -->
-    <section id="view-library" class="hidden flex-1 flex-col bg-slate-950 overflow-hidden">
-      <!-- Search & Actions Bar -->
-      <div class="p-3 bg-slate-900 border-b border-slate-800 flex gap-2 shrink-0">
-        <input type="text" id="search-bar" placeholder="Buscar por nombre, color o categoría..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-sky-500 placeholder-slate-500">
-        <button id="export-btn" class="bg-slate-800 active:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg font-medium">
-          Exportar JSON
-        </button>
+    <!-- Vista Biblioteca -->
+    <section id="view-library" class="view-container">
+      <div class="library-header">
+        <input type="text" id="search-bar" class="search-input" placeholder="Buscar funda o producto...">
+        <button id="export-btn" class="btn-export">JSON</button>
       </div>
-
-      <!-- Cards Grid -->
-      <div id="library-grid" class="flex-1 overflow-y-auto p-3 grid grid-cols-2 gap-3 align-content-start">
-        <!-- Rendered items go here -->
-      </div>
+      <div id="library-grid" class="grid-list"></div>
     </section>
-
   </main>
 
-  <!-- Bottom Navigation Bar -->
-  <nav class="bg-slate-900 border-t border-slate-800 flex shrink-0">
-    <button class="nav-btn flex-1 py-3 flex flex-col items-center gap-1 text-sky-400 font-semibold text-xs" data-view="view-camera">
-      <span class="text-base">📸</span>
-      <span>Escáner</span>
+  <!-- Navegación Flotante -->
+  <nav>
+    <button class="nav-btn active" data-view="view-camera">
+      <span>📷</span> Escáner
     </button>
-    <button class="nav-btn flex-1 py-3 flex flex-col items-center gap-1 text-slate-500 font-medium text-xs" data-view="view-library">
-      <span class="text-base">📦</span>
-      <span>Biblioteca</span>
+    <button class="nav-btn" data-view="view-library">
+      <span>📦</span> Biblioteca
     </button>
   </nav>
 
-  <!-- Save Object Modal -->
-  <div id="save-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-xl p-4 shadow-2xl flex flex-col gap-4">
+  <!-- Modal Guardar -->
+  <div id="save-modal" class="modal">
+    <div class="modal-content">
+      <h3>Registrar Objeto</h3>
+      <div class="form-group">
+        <label>Nombre o Modelo</label>
+        <input type="text" id="modal-title" placeholder="Ej: Funda Silicona iPhone 13">
+      </div>
+      <div class="form-group">
+        <label>Categoría</label>
+        <select id="modal-category">
+          <option value="Funda Silicona">Funda Silicona</option>
+          <option value="Funda Rígida">Funda Rígida</option>
+          <option value="Accesorio">Accesorio</option>
+          <option value="Cargador">Cargador</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="modal-buttons">
+        <button id="btn-cancel-modal" class="btn-secondary">Cancelar</button>
+        <button id="btn-save-modal" class="btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver Detalle -->
+  <div id="detail-modal" class="modal">
+    <div class="modal-content">
+      <img id="detail-img" class="detail-img" src="" alt="">
+      <h3 id="detail-title">Nombre del Producto</h3>
       
-      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
-        <h3 class="font-bold text-sm text-slate-100">Registrar Producto</h3>
-        <span class="text-xs text-slate-500" id="modal-date-tag">--</span>
+      <div class="detail-row">
+        <span class="detail-label">Categoría</span>
+        <span id="detail-category" style="font-weight: 600;">-</span>
       </div>
-
-      <!-- Preview Image Thumbnail -->
-      <div class="flex gap-3 items-center">
-        <img id="modal-preview-img" src="" class="w-20 h-28 object-cover rounded-lg border border-slate-700 bg-black">
-        <div class="flex-1 flex flex-col gap-2">
-          <div>
-            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Categoría</label>
-            <select id="modal-category" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
-              <option value="Funda Silicona">Funda Silicona</option>
-              <option value="Funda MagSafe">Funda MagSafe</option>
-              <option value="Funda Rígida">Funda Rígida</option>
-              <option value="Accesorio">Accesorio</option>
-              <option value="Otro">Otro</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Color Detectado</label>
-            <div class="flex items-center gap-2">
-              <input type="color" id="modal-color-picker" class="w-8 h-8 rounded border-0 bg-transparent cursor-pointer">
-              <span id="modal-color-name" class="text-xs font-medium text-sky-400">Color</span>
-            </div>
-          </div>
+      <div class="detail-row">
+        <span class="detail-label">Color Detectado</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div id="detail-swatch" class="color-swatch"></div>
+          <span id="detail-color-name" style="font-weight: 600;">-</span>
         </div>
       </div>
-
-      <!-- Title Input -->
-      <div>
-        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Nombre / Identificador</label>
-        <input type="text" id="modal-title-input" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500" placeholder="Ej: Funda iPhone 13 Azul">
+      <div class="detail-row">
+        <span class="detail-label">Fecha de Registro</span>
+        <span id="detail-date" style="color: var(--text-muted);">-</span>
       </div>
 
-      <!-- Color Presets -->
-      <div>
-        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1.5">Ajuste Rápido de Color</label>
-        <div class="flex flex-wrap gap-1.5" id="color-quick-presets">
-          <button type="button" data-color="#0f172a" data-name="Negro Matte" class="w-6 h-6 rounded-full bg-slate-900 border border-slate-600"></button>
-          <button type="button" data-color="#f8fafc" data-name="Blanco Matte" class="w-6 h-6 rounded-full bg-slate-100 border border-slate-400"></button>
-          <button type="button" data-color="#ef4444" data-name="Rojo Silicona" class="w-6 h-6 rounded-full bg-red-500 border border-red-400"></button>
-          <button type="button" data-color="#3b82f6" data-name="Azul Cobalto" class="w-6 h-6 rounded-full bg-blue-500 border border-blue-400"></button>
-          <button type="button" data-color="#10b981" data-name="Verde Menta" class="w-6 h-6 rounded-full bg-emerald-500 border border-emerald-400"></button>
-          <button type="button" data-color="#f472b6" data-name="Rosa Pastel" class="w-6 h-6 rounded-full bg-pink-400 border border-pink-300"></button>
-          <button type="button" data-color="#a855f7" data-name="Púrpura" class="w-6 h-6 rounded-full bg-purple-500 border border-purple-400"></button>
-          <button type="button" data-color="#eab308" data-name="Amarillo" class="w-6 h-6 rounded-full bg-yellow-500 border border-yellow-400"></button>
-        </div>
+      <div class="modal-buttons" style="justify-content: space-between; margin-top: 20px;">
+        <button id="btn-delete-detail" class="btn-danger">Eliminar</button>
+        <button id="btn-close-detail" class="btn-secondary">Cerrar</button>
       </div>
-
-      <!-- Action Buttons -->
-      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
-        <button id="btn-cancel-modal" class="px-3.5 py-2 rounded-lg bg-slate-800 active:bg-slate-700 text-xs font-semibold text-slate-300">
-          Cancelar
-        </button>
-        <button id="btn-save-modal" class="px-3.5 py-2 rounded-lg bg-sky-600 active:bg-sky-700 text-xs font-semibold text-white shadow-md">
-          Guardar Objeto
-        </button>
-      </div>
-
     </div>
   </div>
 
   <script>
-    // State Variables
-    let videoStream = null;
-    let autoScanEnabled = false;
-    let lastScanTimestamp = 0;
-    let libraryItems = JSON.parse(localStorage.getItem('scanned_items') || '[]');
+    // Variables de Estado
+    let autoScan = false;
+    let lastScanTime = 0;
+    let items = JSON.parse(localStorage.getItem('scanned_items_v2') || '[]');
     let currentTempCapture = null;
-    let currentDetectedColor = { hex: '#3b82f6', name: 'Analizando...' };
+    let activeDetailItem = null;
+    let currentLiveColor = { hex: '#787878', name: 'Gris' };
 
-    // DOM Elements
+    // Elementos DOM
     const video = document.getElementById('webcam');
     const overlayCanvas = document.getElementById('overlay-canvas');
     const ctx = overlayCanvas.getContext('2d');
-    const itemCountBadge = document.getElementById('item-count-badge');
+    const itemCountBadge = document.getElementById('item-count');
     const scanToast = document.getElementById('scan-toast');
-    const toggleAutoBtn = document.getElementById('toggle-auto-btn');
+    const autoBtn = document.getElementById('toggle-auto-btn');
     const captureBtn = document.getElementById('capture-btn');
     const libraryGrid = document.getElementById('library-grid');
     const searchInput = document.getElementById('search-bar');
+    
     const saveModal = document.getElementById('save-modal');
-    const liveSwatch = document.getElementById('live-swatch');
-    const liveColorName = document.getElementById('live-color-name');
-    const cameraErrorOverlay = document.getElementById('camera-error-overlay');
-    const modalColorPicker = document.getElementById('modal-color-picker');
-    const modalColorName = document.getElementById('modal-color-name');
+    const detailModal = document.getElementById('detail-modal');
 
-    // Color conversion utilities
+    // Paleta de Colores para Fundas de Silicona
+    const SILICONE_PALETTE = [
+      { name: 'Negro Matte', hex: '#1e1e1e', h: [0, 360], s: [0, 20], l: [0, 25] },
+      { name: 'Blanco / Claro', hex: '#f1f5f9', h: [0, 360], s: [0, 15], l: [80, 100] },
+      { name: 'Rojo Silicona', hex: '#ef4444', h: [345, 15], s: [45, 100], l: [30, 70] },
+      { name: 'Azul Cobalto', hex: '#2563eb', h: [200, 245], s: [40, 100], l: [25, 65] },
+      { name: 'Verde Menta / Olivo', hex: '#10b981', h: [80, 160], s: [25, 100], l: [25, 70] },
+      { name: 'Rosa Pastel', hex: '#f472b6', h: [315, 345], s: [30, 100], l: [60, 85] },
+      { name: 'Amarillo', hex: '#eab308', h: [45, 75], s: [50, 100], l: [35, 80] },
+      { name: 'Púrpura / Violeta', hex: '#a855f7', h: [250, 310], s: [30, 100], l: [30, 70] },
+      { name: 'Gris Neutro', hex: '#64748b', h: [0, 360], s: [0, 25], l: [25, 75] }
+    ];
+
+    // Inicializar Cámara
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          resizeCanvas();
+          requestAnimationFrame(processFrame);
+        };
+      } catch (err) {
+        alert("Permiso de cámara denegado o no disponible.");
+      }
+    }
+
+    function resizeCanvas() {
+      overlayCanvas.width = video.videoWidth || video.clientWidth;
+      overlayCanvas.height = video.videoHeight || video.clientHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Procesar Fotograma en Tiempo Real
+    function processFrame() {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+        const boxWidth = overlayCanvas.width * 0.55;
+        const boxHeight = overlayCanvas.height * 0.45;
+        const x = (overlayCanvas.width - boxWidth) / 2;
+        const y = (overlayCanvas.height - boxHeight) / 2;
+
+        // Dibujar marco de detección estilo escáner
+        ctx.strokeStyle = autoScan ? '#0284c7' : '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
+
+        // Muestreo de color central
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 60;
+        tempCanvas.height = 60;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(video, x, y, boxWidth, boxHeight, 0, 0, 60, 60);
+
+        const imgData = tempCtx.getImageData(0, 0, 60, 60);
+        currentLiveColor = detectSiliconeColor(imgData);
+
+        // Actualizar UI del indicador de color
+        document.getElementById('live-swatch').style.backgroundColor = currentLiveColor.hex;
+        document.getElementById('live-color-name').textContent = currentLiveColor.name;
+
+        // Auto-captura por movimiento/estabilidad
+        const now = Date.now();
+        if (autoScan && (now - lastScanTime > 3500)) {
+          lastScanTime = now;
+          triggerCapture();
+        }
+      }
+      requestAnimationFrame(processFrame);
+    }
+
+    // Algoritmo de Detección HSL para Silicona
+    function detectSiliconeColor(imageData) {
+      const data = imageData.data;
+      let totalH = 0, totalS = 0, totalL = 0, count = 0;
+
+      for (let i = 0; i < data.length; i += 16) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const [h, s, l] = rgbToHsl(r, g, b);
+
+        // Filtrar sombras y reflejos blancos deslumbrantes
+        if (l > 12 && l < 88) {
+          totalH += h; totalS += s; totalL += l;
+          count++;
+        }
+      }
+
+      if (count === 0) return { name: 'Gris Neutro', hex: '#64748b' };
+
+      const avgH = totalH / count;
+      const avgS = totalS / count;
+      const avgL = totalL / count;
+
+      // Buscar coincidencia en la paleta
+      for (let item of SILICONE_PALETTE) {
+        const hMatch = item.h[0] > item.h[1] 
+          ? (avgH >= item.h[0] || avgH <= item.h[1])
+          : (avgH >= item.h[0] && avgH <= item.h[1]);
+
+        if (hMatch && avgS >= item.s[0] && avgS <= item.s[1] && avgL >= item.l[0] && avgL <= item.l[1]) {
+          return { name: item.name, hex: item.hex };
+        }
+      }
+
+      return { name: 'Sólido Detectado', hex: `hsl(${Math.round(avgH)}, ${Math.round(avgS)}%, ${Math.round(avgL)}%)` };
+    }
+
     function rgbToHsl(r, g, b) {
       r /= 255; g /= 255; b /= 255;
       const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -221,256 +697,53 @@
       return [h * 360, s * 100, l * 100];
     }
 
-    function rgbToHex(r, g, b) {
-      return "#" + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-    }
-
-    function getSiliconeColorName(r, g, b) {
-      const [h, s, l] = rgbToHsl(r, g, b);
-
-      if (l < 16) return "Negro Matte";
-      if (l > 86 && s < 15) return "Blanco / Transparente";
-      if (s < 14) {
-        if (l > 58) return "Gris Claro";
-        return "Gris Oscuro / Grafito";
-      }
-
-      if (h >= 345 || h < 12) {
-        if (l < 35) return "Rojo Vino / Bordó";
-        if (s < 45) return "Rosa Palo / Pastel";
-        return "Rojo Silicona";
-      }
-      if (h >= 12 && h < 45) {
-        if (l > 70) return "Beige / Crema";
-        if (l < 40) return "Marrón / Terracota";
-        return "Naranja";
-      }
-      if (h >= 45 && h < 68) return "Amarillo";
-      if (h >= 68 && h < 165) {
-        if (l < 30) return "Verde Oliva / Militar";
-        if (s < 38) return "Verde Menta Pastel";
-        return "Verde";
-      }
-      if (h >= 165 && h < 260) {
-        if (l < 26) return "Azul Marino / Dark Navy";
-        if (l > 68 || s < 40) return "Azul Celeste / Pastel";
-        return "Azul Cobalto";
-      }
-      if (h >= 260 && h < 315) {
-        if (l < 30) return "Púrpura Oscuro";
-        return "Púrpura / Violeta";
-      }
-      if (h >= 315 && h < 345) return "Rosa Fucsia";
-
-      return "Color Neutro";
-    }
-
-    // Camera Init & Handling
-    async function startCamera() {
-      cameraErrorOverlay.classList.add('hidden');
-      try {
-        if (videoStream) {
-          videoStream.getTracks().forEach(track => track.stop());
-        }
-        videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
-        });
-        video.srcObject = videoStream;
-        video.onloadedmetadata = () => {
-          resizeOverlayCanvas();
-          requestAnimationFrame(processCameraFrame);
-        };
-      } catch (err) {
-        console.error("Camera access failed:", err);
-        cameraErrorOverlay.classList.remove('hidden');
-      }
-    }
-
-    function resizeOverlayCanvas() {
-      overlayCanvas.width = video.videoWidth || overlayCanvas.clientWidth;
-      overlayCanvas.height = video.videoHeight || overlayCanvas.clientHeight;
-    }
-
-    window.addEventListener('resize', resizeOverlayCanvas);
-
-    // Silicone Case Frame Analysis
-    function processCameraFrame() {
-      if (video.readyState === video.HAVE_ENOUGH_DATA && overlayCanvas.width > 0) {
-        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-        // Define smartphone case box guide (3:5 ratio)
-        const boxWidth = Math.min(overlayCanvas.width * 0.55, 260);
-        const boxHeight = boxWidth * 1.6;
-        const x = (overlayCanvas.width - boxWidth) / 2;
-        const y = (overlayCanvas.height - boxHeight) / 2;
-
-        // Draw overlay frame
-        ctx.strokeStyle = autoScanEnabled ? '#10b981' : '#38bdf8';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([8, 6]);
-        ctx.strokeRect(x, y, boxWidth, boxHeight);
-        ctx.setLineDash([]);
-
-        // Sample center region
-        const sampleCanvas = document.createElement('canvas');
-        sampleCanvas.width = 80;
-        sampleCanvas.height = 80;
-        const sampleCtx = sampleCanvas.getContext('2d');
-
-        const innerX = x + boxWidth * 0.2;
-        const innerY = y + boxHeight * 0.2;
-        const innerW = boxWidth * 0.6;
-        const innerH = boxHeight * 0.6;
-
-        sampleCtx.drawImage(video, innerX, innerY, innerW, innerH, 0, 0, 80, 80);
-        const frameData = sampleCtx.getImageData(0, 0, 80, 80);
-
-        const { hex, name, variance } = analyzeSiliconeSurface(frameData);
-
-        currentDetectedColor = { hex, name };
-        liveSwatch.style.backgroundColor = hex;
-        liveColorName.innerText = name;
-
-        const now = Date.now();
-        if (autoScanEnabled && variance > 12 && (now - lastScanTimestamp > 3000)) {
-          lastScanTimestamp = now;
-          captureProduct(currentDetectedColor);
-        }
-      }
-      requestAnimationFrame(processCameraFrame);
-    }
-
-    // Filter out lighting glares & harsh border shadows
-    function analyzeSiliconeSurface(imageData) {
-      const data = imageData.data;
-      const validPixels = [];
-      let totalVariance = 0;
-      let prevIntensity = 0;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        const [h, s, l] = rgbToHsl(r, g, b);
-
-        // Exclude glares (>88% brightness) and deep shadows (<10% brightness)
-        if (l > 10 && l < 88) {
-          validPixels.push({ r, g, b });
-        }
-
-        const intensity = (r + g + b) / 3;
-        totalVariance += Math.abs(intensity - prevIntensity);
-        prevIntensity = intensity;
-      }
-
-      if (validPixels.length === 0) {
-        validPixels.push({ r: 120, g: 120, b: 120 });
-      }
-
-      let sumR = 0, sumG = 0, sumB = 0;
-      validPixels.forEach(p => {
-        sumR += p.r;
-        sumG += p.g;
-        sumB += p.b;
-      });
-
-      const avgR = sumR / validPixels.length;
-      const avgG = sumG / validPixels.length;
-      const avgB = sumB / validPixels.length;
-
-      const hex = rgbToHex(avgR, avgG, avgB);
-      const name = getSiliconeColorName(avgR, avgG, avgB);
-      const variance = totalVariance / (data.length / 4);
-
-      return { hex, name, variance };
-    }
-
-    // Trigger Object Capture
-    function captureProduct(overrideColor = null) {
-      playAudioBeep();
+    // Captura de Objeto
+    function triggerCapture() {
+      playBeep();
       if (navigator.vibrate) navigator.vibrate(80);
 
-      // Flash Toast Notification
-      scanToast.classList.remove('opacity-0');
-      setTimeout(() => scanToast.classList.add('opacity-0'), 1500);
+      scanToast.style.display = 'block';
+      setTimeout(() => scanToast.style.display = 'none', 1200);
 
       const capCanvas = document.createElement('canvas');
-      capCanvas.width = 320;
-      capCanvas.height = 480;
+      capCanvas.width = 400;
+      capCanvas.height = 400;
       const capCtx = capCanvas.getContext('2d');
 
-      const boxWidth = Math.min(video.videoWidth * 0.55, 260);
-      const boxHeight = boxWidth * 1.6;
+      const boxWidth = video.videoWidth * 0.55;
+      const boxHeight = video.videoHeight * 0.45;
       const x = (video.videoWidth - boxWidth) / 2;
       const y = (video.videoHeight - boxHeight) / 2;
 
-      capCtx.drawImage(video, x, y, boxWidth, boxHeight, 0, 0, 320, 480);
-      const dataUrl = capCanvas.toDataURL('image/jpeg', 0.85);
-
-      const colorData = overrideColor || currentDetectedColor;
+      capCtx.drawImage(video, x, y, boxWidth, boxHeight, 0, 0, 400, 400);
 
       currentTempCapture = {
-        img: dataUrl,
-        colorHex: colorData.hex,
-        colorName: colorData.name,
-        date: new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+        img: capCanvas.toDataURL('image/jpeg', 0.85),
+        color: currentLiveColor,
+        date: new Date().toLocaleString()
       };
 
-      // Populate Modal Fields
-      document.getElementById('modal-preview-img').src = dataUrl;
-      document.getElementById('modal-title-input').value = `Funda ${colorData.name}`;
-      document.getElementById('modal-category').value = 'Funda Silicona';
-      document.getElementById('modal-date-tag').innerText = currentTempCapture.date;
-      modalColorPicker.value = colorData.hex;
-      modalColorName.innerText = colorData.name;
-
-      saveModal.classList.remove('hidden');
-      saveModal.classList.add('flex');
+      document.getElementById('modal-title').value = `Funda #${items.length + 1}`;
+      saveModal.style.display = 'flex';
     }
 
-    // Synth Audio Feedback
-    function playAudioBeep() {
+    function playBeep() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        osc.frequency.value = 800;
+        gain.gain.value = 0.1;
         osc.start();
         osc.stop(audioCtx.currentTime + 0.12);
       } catch (e) {}
     }
 
-    // Modal Interaction Logic
-    modalColorPicker.addEventListener('input', (e) => {
-      const hex = e.target.value;
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      const name = getSiliconeColorName(r, g, b);
-      modalColorName.innerText = name;
-      if (currentTempCapture) {
-        currentTempCapture.colorHex = hex;
-        currentTempCapture.colorName = name;
-      }
-    });
-
-    document.querySelectorAll('#color-quick-presets button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const hex = btn.dataset.color;
-        const name = btn.dataset.name;
-        modalColorPicker.value = hex;
-        modalColorName.innerText = name;
-        if (currentTempCapture) {
-          currentTempCapture.colorHex = hex;
-          currentTempCapture.colorName = name;
-        }
-      });
-    });
-
+    // Eventos Modal Guardar
     document.getElementById('btn-save-modal').addEventListener('click', () => {
-      const title = document.getElementById('modal-title-input').value || 'Objeto sin nombre';
+      const title = document.getElementById('modal-title').value || 'Objeto sin nombre';
       const category = document.getElementById('modal-category').value;
 
       const newItem = {
@@ -478,110 +751,103 @@
         title,
         category,
         image: currentTempCapture.img,
-        colorHex: currentTempCapture.colorHex,
-        colorName: currentTempCapture.colorName,
+        colorName: currentTempCapture.color.name,
+        colorHex: currentTempCapture.color.hex,
         date: currentTempCapture.date
       };
 
-      libraryItems.unshift(newItem);
-      localStorage.setItem('scanned_items', JSON.stringify(libraryItems));
-      renderLibraryUI();
-      closeModal();
+      items.unshift(newItem);
+      localStorage.setItem('scanned_items_v2', JSON.stringify(items));
+      updateUI();
+      saveModal.style.display = 'none';
     });
 
-    document.getElementById('btn-cancel-modal').addEventListener('click', closeModal);
+    document.getElementById('btn-cancel-modal').addEventListener('click', () => {
+      saveModal.style.display = 'none';
+    });
 
-    function closeModal() {
-      saveModal.classList.add('hidden');
-      saveModal.classList.remove('flex');
+    // Abrir Ficha de Detalle al tocar un objeto
+    function openDetailModal(item) {
+      activeDetailItem = item;
+      document.getElementById('detail-img').src = item.image;
+      document.getElementById('detail-title').textContent = item.title;
+      document.getElementById('detail-category').textContent = item.category;
+      document.getElementById('detail-color-name').textContent = item.colorName;
+      document.getElementById('detail-swatch').style.backgroundColor = item.colorHex;
+      document.getElementById('detail-date').textContent = item.date;
+
+      detailModal.style.display = 'flex';
     }
 
-    // Library Rendering
-    function renderLibraryUI() {
-      itemCountBadge.textContent = `${libraryItems.length} Registrados`;
-      const filter = searchInput.value.toLowerCase().trim();
+    document.getElementById('btn-close-detail').addEventListener('click', () => {
+      detailModal.style.display = 'none';
+    });
 
-      const filtered = libraryItems.filter(item =>
-        item.title.toLowerCase().includes(filter) ||
+    document.getElementById('btn-delete-detail').addEventListener('click', () => {
+      if (activeDetailItem) {
+        items = items.filter(i => i.id !== activeDetailItem.id);
+        localStorage.setItem('scanned_items_v2', JSON.stringify(items));
+        updateUI();
+        detailModal.style.display = 'none';
+      }
+    });
+
+    // Renderizar Biblioteca
+    function updateUI() {
+      itemCountBadge.textContent = `${items.length} Registrados`;
+      const filter = searchInput.value.toLowerCase();
+
+      const filtered = items.filter(item => 
+        item.title.toLowerCase().includes(filter) || 
         item.category.toLowerCase().includes(filter) ||
-        (item.colorName && item.colorName.toLowerCase().includes(filter))
+        item.colorName.toLowerCase().includes(filter)
       );
 
-      if (filtered.length === 0) {
-        libraryGrid.innerHTML = `
-          <div class="col-span-2 py-12 text-center text-slate-500 text-xs">
-            No se encontraron objetos registrados.
-          </div>
-        `;
-        return;
-      }
-
       libraryGrid.innerHTML = filtered.map(item => `
-        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-md">
-          <img src="${item.image}" alt="${item.title}" class="w-full h-36 object-cover bg-black">
-          <div class="p-2.5 flex-1 flex flex-col justify-between">
-            <div>
-              <div class="font-bold text-xs text-slate-100 truncate mb-1">${item.title}</div>
-              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
-                <span class="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0" style="background-color: ${item.colorHex || '#3b82f6'}"></span>
-                <span class="truncate">${item.colorName || 'Silicona'} • ${item.category}</span>
-              </div>
-            </div>
-            <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-800/80">
-              <span class="text-[9px] text-slate-500">${item.date}</span>
-              <button onclick="deleteLibraryItem(${item.id})" class="text-[10px] font-semibold text-rose-400 active:text-rose-300">
-                Eliminar
-              </button>
+        <div class="card" onclick='openDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+          <img src="${item.image}" alt="${item.title}">
+          <div class="card-content">
+            <div class="card-title">${item.title}</div>
+            <div class="card-meta">
+              <span class="color-swatch" style="background:${item.colorHex}"></span>
+              ${item.colorName}
             </div>
           </div>
         </div>
       `).join('');
     }
 
-    window.deleteLibraryItem = function(id) {
-      libraryItems = libraryItems.filter(item => item.id !== id);
-      localStorage.setItem('scanned_items', JSON.stringify(libraryItems));
-      renderLibraryUI();
+    window.openDetail = function(item) {
+      openDetailModal(item);
     };
 
-    // Navigation & Tab Switcher
+    // Navegación
     document.querySelectorAll('.nav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.nav-btn').forEach(b => {
-          b.classList.remove('text-sky-400', 'font-semibold');
-          b.classList.add('text-slate-500', 'font-medium');
-        });
-        document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
 
-        btn.classList.remove('text-slate-500', 'font-medium');
-        btn.classList.add('text-sky-400', 'font-semibold');
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.view).classList.add('active');
 
-        const targetView = document.getElementById(btn.dataset.view);
-        targetView.classList.remove('hidden');
-        if (btn.dataset.view === 'view-camera') {
-          targetView.classList.add('flex');
-        } else {
-          targetView.classList.add('flex');
-          renderLibraryUI();
+        if (btn.dataset.view === 'view-library') {
+          updateUI();
         }
       });
     });
 
-    // Control Handlers
-    toggleAutoBtn.addEventListener('click', () => {
-      autoScanEnabled = !autoScanEnabled;
-      toggleAutoBtn.innerText = `Auto: ${autoScanEnabled ? 'ON' : 'OFF'}`;
-      toggleAutoBtn.classList.toggle('bg-emerald-950/80', autoScanEnabled);
-      toggleAutoBtn.classList.toggle('border-emerald-700', autoScanEnabled);
-      toggleAutoBtn.classList.toggle('text-emerald-400', autoScanEnabled);
+    // Controles
+    autoBtn.addEventListener('click', () => {
+      autoScan = !autoScan;
+      autoBtn.classList.toggle('active', autoScan);
+      autoBtn.textContent = `Auto-Escaneo: ${autoScan ? 'ON' : 'OFF'}`;
     });
 
-    captureBtn.addEventListener('click', () => captureProduct());
-    searchInput.addEventListener('input', renderLibraryUI);
-    document.getElementById('retry-camera-btn').addEventListener('click', startCamera);
+    captureBtn.addEventListener('click', () => triggerCapture());
+    searchInput.addEventListener('input', updateUI);
 
     document.getElementById('export-btn').addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(libraryItems, null, 2));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 2));
       const dlAnchor = document.createElement('a');
       dlAnchor.setAttribute("href", dataStr);
       dlAnchor.setAttribute("download", `inventario_fundas_${Date.now()}.json`);
@@ -590,9 +856,9 @@
       dlAnchor.remove();
     });
 
-    // Startup Initialization
-    startCamera();
-    renderLibraryUI();
+    // Inicializar
+    initCamera();
+    updateUI();
   </script>
 </body>
 </html>
