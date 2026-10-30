@@ -2,167 +2,263 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Hub Modular de Herramientas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Toolbox App</title>
   <style>
     :root {
-      --bg-main: #0f172a;
-      --bg-card: rgba(30, 41, 59, 0.7);
-      --border: rgba(255, 255, 255, 0.1);
+      --bg-dark: #090d16;
+      --bg-card: #131b2e;
+      --bg-glass: rgba(19, 27, 46, 0.85);
+      --border: rgba(255, 255, 255, 0.08);
       --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
       --text: #f8fafc;
       --text-muted: #94a3b8;
+      --nav-height: 64px;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg-main); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
 
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: fixed;
+    }
+
+    /* Header Compacto Móvil */
     header {
-      background: rgba(15, 23, 42, 0.9);
+      height: 52px;
+      background: var(--bg-glass);
       backdrop-filter: blur(12px);
-      padding: 14px 20px;
+      padding: 0 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid var(--border);
+      z-index: 20;
+      flex-shrink: 0;
     }
 
-    header h1 { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+    header h1 {
+      font-size: 1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
-    /* Layout Principal */
-    .app-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+    .status-badge {
+      font-size: 0.7rem;
+      background: var(--border);
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 12px;
+    }
 
-    /* Sidebar / Menú de Herramientas */
-    sidebar {
-      width: 240px;
-      background: rgba(15, 23, 42, 0.6);
-      border-right: 1px solid var(--border);
-      padding: 12px;
+    /* Contenedor Principal con Scroll Limpio */
+    main {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 52px - var(--nav-height));
+      overflow: hidden;
+    }
+
+    .tool-viewport {
+      display: none;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      padding-bottom: 20px;
+    }
+
+    .tool-viewport.active {
+      display: block;
+    }
+
+    /* Navegación Inferior Flotante Móvil */
+    nav {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      height: var(--nav-height);
+      background: rgba(19, 27, 46, 0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 6px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      z-index: 30;
+    }
+
+    .nav-item {
+      flex: 1;
+      height: 100%;
+      background: none;
+      border: none;
+      color: var(--text-muted);
       display: flex;
       flex-direction: column;
-      gap: 8px;
-    }
-
-    .tool-btn {
-      padding: 12px 14px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 10px;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      font-weight: 500;
-      display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      gap: 3px;
       cursor: pointer;
-      text-align: left;
-      transition: all 0.2s;
+      border-radius: 18px;
+      transition: all 0.2s ease;
+      max-width: 90px;
     }
 
-    .tool-btn:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
-    .tool-btn.active { background: var(--bg-card); border-color: var(--accent); color: var(--accent); }
+    .nav-item .icon {
+      font-size: 1.25rem;
+    }
 
-    /* Área donde se carga la herramienta activa */
-    main { flex: 1; position: relative; overflow-y: auto; }
-    .tool-viewport { display: none; width: 100%; height: 100%; }
-    .tool-viewport.active { display: block; }
+    .nav-item .label {
+      font-size: 0.68rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
 
-    /* Estilo adaptable para móviles */
-    @media (max-width: 768px) {
-      .app-container { flex-direction: column-reverse; }
-      sidebar {
-        width: 100%;
-        flex-direction: row;
-        overflow-x: auto;
-        border-right: none;
-        border-top: 1px solid var(--border);
-        padding: 8px;
-      }
-      .tool-btn { padding: 8px 12px; white-space: nowrap; font-size: 0.8rem; }
+    .nav-item.active {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    /* Pantalla de Carga */
+    .loader-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>Toolbox Hub</h1>
-    <span id="status-badge" style="font-size: 0.75rem; color: var(--text-muted);">Cargando módulos...</span>
+    <h1>Toolbox Pro</h1>
+    <span id="status-badge" class="status-badge">Cargando...</span>
   </header>
 
-  <div class="app-container">
-    <sidebar id="tools-sidebar">
-      <!-- Los botones de las herramientas se generarán dinámicamente desde config.json -->
-    </sidebar>
+  <main id="viewports-container">
+    <div class="loader-box">
+      <div class="spinner"></div>
+      <span>Cargando herramientas...</span>
+    </div>
+  </main>
 
-    <main id="viewports-container">
-      <!-- Los contenedores de cada herramienta se cargarán aquí -->
-    </main>
-  </div>
+  <nav id="bottom-nav">
+    <!-- Carga dinámica de iconos de navegación -->
+  </nav>
 
   <script>
     const loadedTools = {};
 
-    // Sistema de Registro de Módulos Dinámicos
+    // Función global para registrar módulos
     window.registerTool = function(toolConfig) {
       loadedTools[toolConfig.id] = toolConfig;
-      
       const viewport = document.getElementById(`viewport-${toolConfig.id}`);
       if (viewport) {
+        viewport.innerHTML = ''; // Limpiar loader
         toolConfig.render(viewport);
       }
     };
 
-    // Cargador Principal
-    async function initHub() {
+    async function initApp() {
       const statusBadge = document.getElementById('status-badge');
-      const sidebar = document.getElementById('tools-sidebar');
+      const bottomNav = document.getElementById('bottom-nav');
       const container = document.getElementById('viewports-container');
 
       try {
-        // 1. Leer el archivo de configuración dinámico
         const response = await fetch('config.json');
+        if (!response.ok) throw new Error("No se encontró config.json");
+        
         const toolsList = await response.json();
 
-        sidebar.innerHTML = '';
+        bottomNav.innerHTML = '';
         container.innerHTML = '';
 
-        // 2. Crear las vistas y botones
         toolsList.forEach((tool, index) => {
-          // Botón del Menú
+          // Botón Navegación Inferior
           const btn = document.createElement('button');
-          btn.className = `tool-btn ${index === 0 ? 'active' : ''}`;
+          btn.className = `nav-item ${index === 0 ? 'active' : ''}`;
           btn.dataset.target = tool.id;
-          btn.innerHTML = `<span>${tool.icon}</span> <span>${tool.name}</span>`;
+          btn.innerHTML = `<span class="icon">${tool.icon}</span><span class="label">${tool.name}</span>`;
           btn.onclick = () => switchTool(tool.id);
-          sidebar.appendChild(btn);
+          bottomNav.appendChild(btn);
 
-          // Contenedor Viewport
+          // Viewport de la herramienta
           const viewport = document.createElement('div');
           viewport.id = `viewport-${tool.id}`;
           viewport.className = `tool-viewport ${index === 0 ? 'active' : ''}`;
+          viewport.innerHTML = `<div class="loader-box"><div class="spinner"></div><span>Cargando ${tool.name}...</span></div>`;
           container.appendChild(viewport);
 
-          // 3. Cargar el script JS de la herramienta dinámicamente
+          // Cargar script desde la raíz
           const script = document.createElement('script');
           script.src = tool.script;
+          script.onerror = () => {
+            viewport.innerHTML = `<div style="padding:20px; color:#ef4444; text-align:center;">Error al cargar <b>${tool.script}</b>. Verifica que exista en GitHub.</div>`;
+          };
           document.head.appendChild(script);
         });
 
-        statusBadge.textContent = `${toolsList.length} Herramientas Activas`;
+        statusBadge.textContent = `${toolsList.length} Apps`;
 
       } catch (err) {
         console.error(err);
-        statusBadge.textContent = "Error al cargar config.json";
-        container.innerHTML = `<div style="padding: 20px; color: #ef4444;">No se pudo cargar el archivo <b>config.json</b>. Asegúrate de que existe en el repositorio de GitHub.</div>`;
+        statusBadge.textContent = "Error";
+        container.innerHTML = `
+          <div style="padding: 24px; text-align: center; color: #ef4444;">
+            <h3>Error de Configuración</h3>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 8px;">
+              Asegúrate de tener subido el archivo <b>config.json</b> en la raíz de tu repositorio de GitHub.
+            </p>
+          </div>
+        `;
       }
     }
 
     function switchTool(id) {
-      document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.target === id));
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.target === id));
       document.querySelectorAll('.tool-viewport').forEach(v => v.classList.toggle('active', v.id === `viewport-${id}`));
     }
 
-    initHub();
+    initApp();
   </script>
 </body>
 </html>
